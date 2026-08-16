@@ -70,6 +70,7 @@ static int add_word(token_list* tokens, const char* start, size_t l){
     char* value;
     size_t i=0;
     size_t j=0;
+    char q = '\0';
     node = malloc(sizeof(token_node));
 
     if(node == NULL) return 0;
@@ -81,19 +82,31 @@ static int add_word(token_list* tokens, const char* start, size_t l){
     }
 
     while(i<l){
-        if(start[i] == '\\'){
+        if(q == '\0' && (start[i] == '\'' || start[i] == '"')){
+            q = start[i];
+            i++;
+            continue;
+        }
+
+        if(q != '\0' && start[i] == q){
+            q = '\0';
+            i++;
+            continue;
+
+        }
+
+        if(start[i] == '\\' && q != '\''){
             i++;
             if(i<l){
                 value[j] = start[i];
                 j++;
                 i++;
             }
+            continue;
         }
-        else{
-            value[j] = start[i];
-            j++;
-            i++;
-        }
+        value[j] = start[i];
+        j++;
+        i++;
     }
     value[j] = '\0';
     node->token.type = token_word;
@@ -146,6 +159,7 @@ int lexer_line(const char* line, token_list* tokens){
         //handle normal word
         start = i;
         while(line[i] != '\0'){
+            //backslash escape
             if(line[i] == '\\'){
                 i++;
                 if(line[i] != '\0'){
@@ -153,6 +167,24 @@ int lexer_line(const char* line, token_list* tokens){
                 }
                 continue;
             }
+            //quoted
+            if(line[i] == '\'' || line[i] == '"'){
+                char q = line[i];
+                i++;
+                while(line[i] != '\0' && line[i] != q){
+                    if(q == '"' && line[i] == '\\'){
+                        i++;
+                        if(line[i] != '\0') i++;
+                        continue;
+                    }
+                    i++;
+                }
+                //consume closing quote
+                if(line[i] == q){
+                    i++;
+                }
+            }
+
             if(isspace((unsigned char)line[i]) || is_op(line[i])) break;
             i++;
         }
