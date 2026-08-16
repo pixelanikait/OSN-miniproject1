@@ -39,33 +39,6 @@ static Token_type get_token_type(char c){
     }
 }
 
-static int add_word(token_list* tokens, const char* start, size_t l){
-    token_node* node;
-    node = malloc(sizeof(token_node));
-
-    if(node == NULL) return 0;
-
-    node->token.type = token_word;
-    node->token.value = cpy_str(start, l);
-
-    if(node->token.value == NULL){
-        free(node);
-        return 0;
-    }
-
-    node->next = NULL;
-    if(tokens->head == NULL){
-        tokens->head = node;
-        tokens->tail = node;
-    }
-    else{
-        tokens->tail->next = node;
-        tokens->tail=node;
-    }
-
-    return 1;
-}
-
 static int add_op(token_list* tokens, Token_type type, const char* value, size_t l){
     token_node* node;
     node = malloc(sizeof(token_node));
@@ -90,6 +63,54 @@ static int add_op(token_list* tokens, Token_type type, const char* value, size_t
     }
 
     return 1;
+}
+
+static int add_word(token_list* tokens, const char* start, size_t l){
+    token_node* node;
+    char* value;
+    size_t i=0;
+    size_t j=0;
+    node = malloc(sizeof(token_node));
+
+    if(node == NULL) return 0;
+
+    value = malloc(l+1);
+    if(value == NULL){
+        free(node);
+        return 0;
+    }
+
+    while(i<l){
+        if(start[i] == '\\'){
+            i++;
+            if(i<l){
+                value[j] = start[i];
+                j++;
+                i++;
+            }
+        }
+        else{
+            value[j] = start[i];
+            j++;
+            i++;
+        }
+    }
+    value[j] = '\0';
+    node->token.type = token_word;
+    node->token.value=value;
+    node->next=NULL;
+
+    if(tokens->head == NULL){
+        tokens->head = node;
+        tokens->tail = node;
+    }
+    else{
+        tokens->tail->next = node;
+        tokens->tail = node;
+    }
+
+    return 1;
+
 }
 
 int lexer_line(const char* line, token_list* tokens){
@@ -122,9 +143,20 @@ int lexer_line(const char* line, token_list* tokens){
             i++;
             continue;
         }
+        //handle normal word
         start = i;
-        while(line[i] != '\0' && !isspace((unsigned char)line[i]) && !is_op(line[i])) i++;
-        if(!add_word(tokens, line + start, i - start)){
+        while(line[i] != '\0'){
+            if(line[i] == '\\'){
+                i++;
+                if(line[i] != '\0'){
+                    i++;
+                }
+                continue;
+            }
+            if(isspace((unsigned char)line[i]) || is_op(line[i])) break;
+            i++;
+        }
+        if(!add_word(tokens, line+start, i-start)){
             free_tokens(tokens);
             return 0;
         }
