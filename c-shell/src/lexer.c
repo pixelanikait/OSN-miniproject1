@@ -13,6 +13,32 @@ static char* cpy_str(const char* start, size_t l){
     return res;
 }
 
+static int is_op(char c){
+    return c == '|' ||
+           c == '&' ||
+           c == ';' ||
+           c == '>' ||
+           c == '<';
+}
+
+static Token_type get_token_type(char c){
+    switch (c)
+    {
+    case '|':
+        return token_pipe;
+    case '&':
+        return token_amp;
+    case ';':
+        return token_semi;
+    case '>':
+        return token_gt;
+    case '<':
+        return token_lt;
+    default:
+        return token_word;
+    }
+}
+
 static int add_word(token_list* tokens, const char* start, size_t l){
     token_node* node;
     node = malloc(sizeof(token_node));
@@ -40,6 +66,32 @@ static int add_word(token_list* tokens, const char* start, size_t l){
     return 1;
 }
 
+static int add_op(token_list* tokens, Token_type type, const char* value, size_t l){
+    token_node* node;
+    node = malloc(sizeof(token_node));
+    if(node == NULL) return 0;
+
+    node->token.type = type;
+    node->token.value = cpy_str(value, l);
+
+    if(node->token.value == NULL){
+        free(node);
+        return 0;
+    }
+
+    node->next = NULL;
+    if(tokens->head == NULL){
+        tokens->head = node;
+        tokens->tail = node;
+    }
+    else{
+        tokens->tail->next = node;
+        tokens->tail = node;
+    }
+
+    return 1;
+}
+
 int lexer_line(const char* line, token_list* tokens){
     size_t i = 0;
     tokens->head = NULL;
@@ -50,8 +102,28 @@ int lexer_line(const char* line, token_list* tokens){
             i++;
             continue;
         }
+        //handle max munch
+        if(line[i] == '>' && line[i+1] == '>'){
+            if(!add_op(tokens, token_gtgt, line+i, 2)){
+                free_tokens(tokens);
+                return 0;
+            }
+            i+=2;
+            continue;
+        }
+        //handle single op
+        if(is_op(line[i])){
+            Token_type type;
+            type = get_token_type(line[i]);
+            if(!add_op(tokens, type, line+i, 1)){
+                free_tokens(tokens);
+                return 0;
+            }
+            i++;
+            continue;
+        }
         start = i;
-        while(line[i] != '\0' && !isspace((unsigned char)line[i])) i++;
+        while(line[i] != '\0' && !isspace((unsigned char)line[i]) && !is_op(line[i])) i++;
         if(!add_word(tokens, line + start, i - start)){
             free_tokens(tokens);
             return 0;
