@@ -92,7 +92,6 @@ static int add_word(token_list* tokens, const char* start, size_t l){
             q = '\0';
             i++;
             continue;
-
         }
 
         if(start[i] == '\\' && q != '\''){
@@ -162,9 +161,11 @@ int lexer_line(const char* line, token_list* tokens){
             //backslash escape
             if(line[i] == '\\'){
                 i++;
-                if(line[i] != '\0'){
-                    i++;
+                if(line[i] == '\0'){
+                    free_tokens(tokens);
+                    return 0;
                 }
+                i++;
                 continue;
             }
             //quoted
@@ -174,15 +175,21 @@ int lexer_line(const char* line, token_list* tokens){
                 while(line[i] != '\0' && line[i] != q){
                     if(q == '"' && line[i] == '\\'){
                         i++;
-                        if(line[i] != '\0') i++;
+                        if(line[i] == '\0'){
+                            free_tokens(tokens);
+                            return 0;
+                        }
+                        i++;
                         continue;
                     }
                     i++;
                 }
-                //consume closing quote
-                if(line[i] == q){
-                    i++;
+                if(line[i] == '\0'){
+                    free_tokens(tokens);
+                    return 0;
                 }
+                i++;
+                continue;
             }
 
             if(isspace((unsigned char)line[i]) || is_op(line[i])) break;
