@@ -10,7 +10,8 @@ CFLAGS = -std=c23 \
 TARGET = shell.out
 
 SRC = src/main.c \
-	  src/prompt.c
+	  src/prompt.c \
+	  src/input.c
 
 OBJ = $(SRC:.c=.o)
 
