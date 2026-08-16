@@ -22,9 +22,19 @@ static int add_word(token_list* tokens, const char* start, size_t l){
     node->token.type = token_word;
     node->token.value = cpy_str(start, l);
 
-    if(node->token.type == NULL){
+    if(node->token.value == NULL){
         free(node);
-        return;
+        return 0;
+    }
+
+    node->next = NULL;
+    if(tokens->head == NULL){
+        tokens->head = node;
+        tokens->tail = node;
+    }
+    else{
+        tokens->tail->next = node;
+        tokens->tail=node;
     }
 
     return 1;
@@ -47,6 +57,7 @@ int lexer_line(const char* line, token_list* tokens){
             return 0;
         }
     }
+    return 1;
 }
 
 void free_tokens(token_list* tokens){
