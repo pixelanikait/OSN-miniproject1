@@ -1,0 +1,5 @@
+#Compiled object files
+*.o
+
+#Shell exe
+c-shell/shell.out
