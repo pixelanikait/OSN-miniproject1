@@ -1,6 +1,7 @@
 #include "prompt.h"
 #include "input.h"
 #include "lexer.h"
+#include"parser.h"
 
 #include<stdlib.h>
 #include<stdio.h>
@@ -54,7 +55,11 @@ int main(){
         if(!lexer_line(line, &tokens)){
             fprintf(stderr, "Lexer failed\n");
             free(line);
-            break;
+            continue;
+        }
+        
+        if(!validate(&tokens)){
+            fprintf(stderr,"Parser rejected input\n");
         }
 
         curr = tokens.head;
