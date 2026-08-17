@@ -1,7 +1,8 @@
 #include "prompt.h"
 #include "input.h"
 #include "lexer.h"
-#include"parser.h"
+#include "parser.h"
+#include "hop.h"
 
 #include<stdlib.h>
 #include<stdio.h>
@@ -42,6 +43,7 @@ static void print_token(token_node *node)
 
 int main(){
     prompt_init();
+    hop_init();
     while (1){
         char* line;
         token_list tokens;
@@ -60,9 +62,19 @@ int main(){
         
         if(!validate(&tokens)){
             fprintf(stderr,"Parser rejected input\n");
+            free_tokens(&tokens);
+            free(line);
+            continue;
         }
 
         curr = tokens.head;
+
+        if(curr != NULL && curr->token.type == token_word && strcmp(curr->token.value, "hop") == 0){
+            hop(&tokens);
+            free_tokens(&tokens);
+            free(line);
+            continue;
+        }
 
         while(curr != NULL){
             print_token(curr);
