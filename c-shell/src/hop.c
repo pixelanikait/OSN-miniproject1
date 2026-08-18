@@ -78,6 +78,11 @@ void hop_init(){
     load_history();
 }
 
+const char* hop_previous_dir(){
+    if(!has_prev) return NULL;
+    return hop_prev;
+}
+
 static void record_visit(const char* path){
     for(int i=0;i<vis_count;i++){
         if(strcmp(visited[i].path, path) == 0){

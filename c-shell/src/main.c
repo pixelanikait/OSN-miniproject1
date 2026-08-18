@@ -3,6 +3,7 @@
 #include "lexer.h"
 #include "parser.h"
 #include "hop.h"
+#include "reveal.h"
 
 #include<stdlib.h>
 #include<stdio.h>
@@ -44,6 +45,7 @@ static void print_token(token_node *node)
 int main(){
     prompt_init();
     hop_init();
+    reveal_init();
     while (1){
         char* line;
         token_list tokens;
@@ -76,6 +78,13 @@ int main(){
             continue;
         }
 
+        if(curr != NULL && curr->token.type == token_word && strcmp(curr->token.value, "reveal") == 0){
+            reveal(&tokens);
+            free_tokens(&tokens);
+            free(line);
+            continue;
+        }
+        
         while(curr != NULL){
             print_token(curr);
             curr = curr->next;

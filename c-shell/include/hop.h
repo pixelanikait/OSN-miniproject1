@@ -5,5 +5,6 @@
 
 void hop_init();
 int hop(token_list* tokens);
+const char* hop_previous_dir();
 
 #endif
