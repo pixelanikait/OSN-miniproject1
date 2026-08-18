@@ -21,6 +21,14 @@ static int is_op(char c){
            c == '<';
 }
 
+static int is_doublequote_escape(char c){
+    return c == '"' ||
+           c == '\\' ||
+           c == '$' ||
+           c == '`' ||
+           c == '\n';
+}
+
 static Token_type get_token_type(char c){
     switch (c)
     {
@@ -94,7 +102,30 @@ static int add_word(token_list* tokens, const char* start, size_t l){
             continue;
         }
 
-        if(start[i] == '\\' && q != '\''){
+        if(start[i] == '\\'){
+            if(q == '\''){
+                value[j] = start[i];
+                j++;
+                i++;
+                continue;
+            }
+            if(q == '"'){
+                if(i + 1 < l && is_doublequote_escape(start[i+1])){
+                    i++;
+                    if(start[i] == '\n'){
+                        i++;
+                        continue;
+                    }
+                    value[j] = start[i];
+                    j++;
+                    i++;
+                    continue;
+                }
+                value[j] = start[i];
+                j++;
+                i++;
+                continue;
+            }
             i++;
             if(i<l){
                 value[j] = start[i];
@@ -174,10 +205,13 @@ int lexer_line(const char* line, token_list* tokens){
                 i++;
                 while(line[i] != '\0' && line[i] != q){
                     if(q == '"' && line[i] == '\\'){
-                        i++;
-                        if(line[i] == '\0'){
+                        if(line[i+1] == '\0'){
                             free_tokens(tokens);
                             return 0;
+                        }
+                        if(is_doublequote_escape(line[i+1])){
+                            i+=2;
+                            continue;
                         }
                         i++;
                         continue;

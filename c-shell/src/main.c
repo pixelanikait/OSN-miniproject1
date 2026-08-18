@@ -6,43 +6,44 @@
 #include "reveal.h"
 #include "peek.h"
 #include "locate.h"
+#include "execute.h"
 
 #include<stdlib.h>
 #include<stdio.h>
 #include<string.h>
 
-static void print_token(token_node *node)
-{
-    switch (node->token.type) {
-        case token_word:
-            printf("WORD(\"%s\")\n", node->token.value);
-            break;
+// static void print_token(token_node *node)
+// {
+//     switch (node->token.type) {
+//         case token_word:
+//             printf("WORD(\"%s\")\n", node->token.value);
+//             break;
 
-        case token_pipe:
-            printf("OP_PIPE(\"%s\")\n", node->token.value);
-            break;
+//         case token_pipe:
+//             printf("OP_PIPE(\"%s\")\n", node->token.value);
+//             break;
 
-        case token_amp:
-            printf("OP_AMP(\"%s\")\n", node->token.value);
-            break;
+//         case token_amp:
+//             printf("OP_AMP(\"%s\")\n", node->token.value);
+//             break;
 
-        case token_semi:
-            printf("OP_SEMI(\"%s\")\n", node->token.value);
-            break;
+//         case token_semi:
+//             printf("OP_SEMI(\"%s\")\n", node->token.value);
+//             break;
 
-        case token_lt:
-            printf("OP_LT(\"%s\")\n", node->token.value);
-            break;
+//         case token_lt:
+//             printf("OP_LT(\"%s\")\n", node->token.value);
+//             break;
 
-        case token_gt:
-            printf("OP_GT(\"%s\")\n", node->token.value);
-            break;
+//         case token_gt:
+//             printf("OP_GT(\"%s\")\n", node->token.value);
+//             break;
 
-        case token_gtgt:
-            printf("OP_GTGT(\"%s\")\n", node->token.value);
-            break;
-    }
-}
+//         case token_gtgt:
+//             printf("OP_GTGT(\"%s\")\n", node->token.value);
+//             break;
+//     }
+// }
 
 int main(){
     prompt_init();
@@ -101,13 +102,14 @@ int main(){
             continue;
         }
         
-        while(curr != NULL){
-            print_token(curr);
-            curr = curr->next;
-        }
-
+        // while(curr != NULL){
+        //     print_token(curr);
+        //     curr = curr->next;
+        // }
+        execute(&tokens);
         free_tokens(&tokens);
         free(line);
+        continue;
     }
     return 0;
 }
