@@ -4,6 +4,7 @@
 #include "parser.h"
 #include "hop.h"
 #include "reveal.h"
+#include "peek.h"
 
 #include<stdlib.h>
 #include<stdio.h>
@@ -73,6 +74,13 @@ int main(){
 
         if(curr != NULL && curr->token.type == token_word && strcmp(curr->token.value, "hop") == 0){
             hop(&tokens);
+            free_tokens(&tokens);
+            free(line);
+            continue;
+        }
+
+        if(curr != NULL && curr->token.type == token_word && strcmp(curr->token.value, "peek") == 0){
+            peek(&tokens);
             free_tokens(&tokens);
             free(line);
             continue;
