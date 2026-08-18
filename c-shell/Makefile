@@ -16,7 +16,8 @@ SRC = src/main.c \
 	  src/parser.c \
 	  src/hop.c \
 	  src/reveal.c \
-	  src/peek.c
+	  src/peek.c \
+	  src/locate.c
 
 OBJ = $(SRC:.c=.o)
 

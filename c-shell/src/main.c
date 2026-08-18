@@ -5,6 +5,7 @@
 #include "hop.h"
 #include "reveal.h"
 #include "peek.h"
+#include "locate.h"
 
 #include<stdlib.h>
 #include<stdio.h>
@@ -88,6 +89,13 @@ int main(){
 
         if(curr != NULL && curr->token.type == token_word && strcmp(curr->token.value, "reveal") == 0){
             reveal(&tokens);
+            free_tokens(&tokens);
+            free(line);
+            continue;
+        }
+
+        if(curr != NULL && curr->token.type == token_word && strcmp(curr->token.value, "locate") == 0){
+            locate(&tokens);
             free_tokens(&tokens);
             free(line);
             continue;
