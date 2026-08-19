@@ -12,9 +12,21 @@
 #include <fcntl.h>
 
 #define PATH_BUFFER_SIZE 4096
+#define MAX_PIPE_COMMANDS 256
 
 static int is_exec(const char* path){
     return access(path,X_OK) == 0;
+}
+
+static int has_pipe(const token_list* tokens){
+    token_node* curr = tokens->head;
+    while(curr != NULL){
+        if(curr->token.type == token_pipe){
+            return 1;
+        }
+        curr = curr->next;
+    }
+    return 0;
 }
 
 static int resolve(const char* command, char* resolved_path){
@@ -98,6 +110,69 @@ static int resolve(const char* command, char* resolved_path){
     }
     free(path_copy);
     return 0;
+}
+
+static int add_token_copy(token_list* list, const token_node* source){
+    token_node* node = malloc(sizeof(token_node));
+    if(node == NULL) return 0;
+    node->token.type = source->token.type;
+    node->token.value = malloc(strlen(source->token.value) + 1);
+
+    if(node->token.value == NULL){
+        free(node);
+        return 0;
+    }
+
+    strcpy(node->token.value, source->token.value);
+    node->next = NULL;
+
+    if(list->head == NULL){
+        list->head=node;
+        list->tail=node;
+    }
+    else{
+        list->tail->next=node;
+        list->tail=node;
+    }
+    return 1;
+}
+
+static int split_at_pipe(const token_list* tokens, token_list* commands, int* count){
+    for(int i=0;i<MAX_PIPE_COMMANDS ;i++){
+        commands[i].head = NULL;
+        commands[i].tail = NULL;
+    }
+
+    int command_count = 0;
+
+    if(tokens->head == NULL) return 0;
+
+    command_count = 1;
+    token_node* curr = tokens->head;
+    while(curr != NULL){
+        if(curr->token.type == token_pipe){
+            if(commands[command_count - 1].head == NULL) return 0;
+            if(command_count >= MAX_PIPE_COMMANDS) return 0;
+            command_count++;
+        }
+        else{
+            if(!add_token_copy(&commands[command_count - 1], curr)){
+                for(int i=0;i<command_count;i++){
+                    free_tokens(&commands[i]);
+                }
+                return 0;
+            }
+        }
+        curr = curr->next;
+    }
+    if(commands[command_count - 1].head == NULL){
+        for(int i=0;i<command_count;i++){
+            free_tokens(&commands[i]);
+        }
+        return 0;
+    }
+    *count = command_count;
+    return 1;
 }
 
 static int build_argv(token_list* tokens, char** argv, int max_args){
@@ -268,7 +343,75 @@ static int run_command_child(token_list* tokens){
     return 127;
 }
 
+static int execute_pipeline(token_list* tokens){
+    token_list commands[MAX_PIPE_COMMANDS];
+    int command_count = 0;
+
+    if(!split_at_pipe(tokens, commands, &command_count)){
+        fprintf(stderr, "cshell: invalid pipeline\n");
+        return 1;
+    }
+    int pipes[MAX_PIPE_COMMANDS - 1][2];
+    for(int i = 0; i < command_count - 1; i++){
+        if(pipe(pipes[i]) < 0){
+            perror("pipe");
+            for(int j = 0; j < command_count; j++){
+                free_tokens(&commands[j]);
+            }
+            return 1;
+        }
+    }
+    pid_t pids[MAX_PIPE_COMMANDS];
+    for(int i = 0; i < command_count; i++){
+        pids[i] = fork();
+        if(pids[i] < 0){
+            perror("fork");
+            for(int j = 0; j < command_count - 1; j++){
+                close(pipes[j][0]);
+                close(pipes[j][1]);
+            }
+            for(int j = 0; j < command_count; j++){
+                free_tokens(&commands[j]);
+            }
+            return 1;
+        }
+
+        if(pids[i] == 0){
+            if(i > 0){
+                if(dup2(pipes[i - 1][0], STDIN_FILENO) < 0){
+                    perror("dup2");
+                    _exit(1);
+                }
+            }
+            if(i < command_count - 1){
+                if(dup2(pipes[i][1], STDOUT_FILENO) < 0){
+                    perror("dup2");
+                    _exit(1);
+                }
+            }
+            for(int j = 0; j < command_count - 1; j++){
+                close(pipes[j][0]);
+                close(pipes[j][1]);
+            }
+            int status = run_command_child(&commands[i]);
+            _exit(status);
+        }
+    }
+    for(int i = 0; i < command_count - 1; i++){
+        close(pipes[i][0]);
+        close(pipes[i][1]);
+    }
+    for(int i = 0; i < command_count; i++){
+        waitpid(pids[i], NULL, 0);
+    }
+    for(int i = 0; i < command_count; i++){
+        free_tokens(&commands[i]);
+    }
+    return 0;
+}
+
 int execute(token_list* tokens){
+    if(has_pipe(tokens)) return execute_pipeline(tokens);
     pid_t pid = fork();
     if(pid < 0){
         perror("fork");

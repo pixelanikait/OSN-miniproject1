@@ -45,6 +45,22 @@
 //     }
 // }
 
+static int has_shell_op(token_list* tokens){
+    token_node* curr = tokens->head;
+    while(curr != NULL){
+        if(curr->token.type == token_pipe ||
+           curr->token.type == token_lt ||
+           curr->token.type == token_gt ||
+           curr->token.type == token_gtgt ||
+           curr->token.type == token_semi ||
+           curr->token.type == token_amp){
+            return 1;
+        }
+        curr = curr->next;
+    }
+    return 0;
+}
+
 int main(){
     prompt_init();
     hop_init();
@@ -74,7 +90,7 @@ int main(){
 
         curr = tokens.head;
 
-        if(curr != NULL && curr->token.type == token_word && strcmp(curr->token.value, "hop") == 0){
+        if(curr != NULL && curr->token.type == token_word && strcmp(curr->token.value, "hop") == 0 && !has_shell_op(&tokens)){
             hop(&tokens);
             free_tokens(&tokens);
             free(line);
