@@ -5,6 +5,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <sys/wait.h>
+#include <fcntl.h>
 
 #define PATH_BUFFER_SIZE 4096
 
@@ -99,10 +100,22 @@ static int build_argv(token_list* tokens, char** argv, int max_args){
     token_node* curr = tokens->head;
     int argc = 0;
     while(curr != NULL){
-        if(curr->token.type == token_semi || curr->token.type == token_amp){
-            break;
+        if(curr->token.type == token_lt){
+            if(curr->next == NULL || curr->next->token.type != token_word){
+                return 0;
+            }
+            curr = curr->next->next;
+            continue;
         }
-        if(curr->token.type == token_pipe){
+        if(curr->token.type == token_gt || curr->token.type == token_gtgt){
+            if(curr->next == NULL || curr->next->token.type != token_word){
+                return 0;
+            }
+            curr = curr->next->next;
+            continue;
+
+        }
+        if(curr->token.type == token_semi || curr->token.type == token_amp || curr->token.type == token_pipe){
             break;
         }
         if(argc >= max_args - 1){
@@ -117,31 +130,59 @@ static int build_argv(token_list* tokens, char** argv, int max_args){
     return argc > 0;
 }
 
-int execute(token_list* tokens){
+static int set_input_redirect(token_list* tokens){
+    token_node* curr = tokens->head;
+    while(curr != NULL){
+        if(curr->token.type == token_lt){
+            if(curr->next == NULL || curr->next->token.type != token_word){
+                fprintf(stderr, "cshell: invalid input redirection\n");
+            }
+            int fd = open(curr->next->token.value, O_RDONLY);
+            if(fd < 0){
+                perror(curr->next->token.value);
+                return 0;
+            }
+            if(dup2(fd, STDIN_FILENO) < 0){
+                perror("dup2");
+                close(fd);
+                return 0;
+            }
+            close(fd);
+            return 1;
+        }
+        curr = curr->next;
+    }
+    return 1;
+}
+
+static int run_command_child(token_list* tokens){
     char* argv[256];
     char resolved_path[PATH_BUFFER_SIZE];
-
+    if(!set_input_redirect(tokens)) return 1;
     if(!build_argv(tokens, argv, 256)) return 1;
-
     if(!resolve(argv[0], resolved_path)){
         fprintf(stderr, "cshell: command not found(%s)\n", argv[0]);
-        return 1;
+        return 127;
     }
+    execv(resolved_path, argv);
+    perror("exec");
+    return 127;
+}
 
+int execute(token_list* tokens){
     pid_t pid = fork();
     if(pid < 0){
         perror("fork");
         return 1;
     }
     if(pid == 0){
-        execv(resolved_path, argv);
-        fprintf(stderr, "cshell: command not found(%s)\n", argv[0]);
-        _exit(127);
+        int status = run_command_child(tokens);
+        _exit(status);
     }
     int status;
     if(waitpid(pid, &status, 0) < 0){
         perror("waitpid");
         return 1;
     }
-    return 0;
+    return WIFEXITED(status) ? WEXITSTATUS(status) : 1; 
 }
