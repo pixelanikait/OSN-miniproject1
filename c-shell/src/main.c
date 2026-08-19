@@ -80,28 +80,6 @@ int main(){
             free(line);
             continue;
         }
-
-        if(curr != NULL && curr->token.type == token_word && strcmp(curr->token.value, "peek") == 0){
-            peek(&tokens);
-            free_tokens(&tokens);
-            free(line);
-            continue;
-        }
-
-        if(curr != NULL && curr->token.type == token_word && strcmp(curr->token.value, "reveal") == 0){
-            reveal(&tokens);
-            free_tokens(&tokens);
-            free(line);
-            continue;
-        }
-
-        if(curr != NULL && curr->token.type == token_word && strcmp(curr->token.value, "locate") == 0){
-            locate(&tokens);
-            free_tokens(&tokens);
-            free(line);
-            continue;
-        }
-        
         // while(curr != NULL){
         //     print_token(curr);
         //     curr = curr->next;

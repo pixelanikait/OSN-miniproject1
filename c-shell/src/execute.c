@@ -1,4 +1,8 @@
 #include "execute.h"
+#include "hop.h"
+#include "reveal.h"
+#include "peek.h"
+#include "locate.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -100,20 +104,12 @@ static int build_argv(token_list* tokens, char** argv, int max_args){
     token_node* curr = tokens->head;
     int argc = 0;
     while(curr != NULL){
-        if(curr->token.type == token_lt){
+        if(curr->token.type == token_lt || curr->token.type == token_gt || curr->token.type == token_gtgt){
             if(curr->next == NULL || curr->next->token.type != token_word){
                 return 0;
             }
             curr = curr->next->next;
             continue;
-        }
-        if(curr->token.type == token_gt || curr->token.type == token_gtgt){
-            if(curr->next == NULL || curr->next->token.type != token_word){
-                return 0;
-            }
-            curr = curr->next->next;
-            continue;
-
         }
         if(curr->token.type == token_semi || curr->token.type == token_amp || curr->token.type == token_pipe){
             break;
@@ -126,8 +122,57 @@ static int build_argv(token_list* tokens, char** argv, int max_args){
         argc++;
         curr = curr->next;
     }
-    argc[argv] = NULL;
+    argv[argc] = NULL;
     return argc > 0;
+}
+
+static int build_builtin_tokens(token_list* tokens,token_list* clean_tokens){
+    token_node* curr = tokens->head;
+    clean_tokens->head = NULL;
+    clean_tokens->tail = NULL;
+    while(curr != NULL){
+        if(curr->token.type == token_lt ||
+           curr->token.type == token_gt ||
+           curr->token.type == token_gtgt){
+            if(curr->next == NULL ||
+               curr->next->token.type != token_word){
+                free_tokens(clean_tokens);
+                return 0;
+            }
+            curr = curr->next->next;
+            continue;
+        }
+        if(curr->token.type == token_pipe ||
+           curr->token.type == token_semi ||
+           curr->token.type == token_amp){
+            break;
+        }
+        token_node* node = malloc(sizeof(token_node));
+        if(node == NULL){
+            free_tokens(clean_tokens);
+            return 0;
+        }
+        node->token.type = curr->token.type;
+        node->token.value = malloc(strlen(curr->token.value) + 1);
+        if(node->token.value == NULL){
+            free(node);
+            free_tokens(clean_tokens);
+            return 0;
+        }
+        strcpy(node->token.value, curr->token.value);
+        node->next = NULL;
+
+        if(clean_tokens->head == NULL){
+            clean_tokens->head = node;
+            clean_tokens->tail = node;
+        }
+        else{
+            clean_tokens->tail->next = node;
+            clean_tokens->tail = node;
+        }
+        curr = curr->next;
+    }
+    return 1;
 }
 
 static int set_input_redirect(token_list* tokens){
@@ -136,6 +181,7 @@ static int set_input_redirect(token_list* tokens){
         if(curr->token.type == token_lt){
             if(curr->next == NULL || curr->next->token.type != token_word){
                 fprintf(stderr, "cshell: invalid input redirection\n");
+                return 0;
             }
             int fd = open(curr->next->token.value, O_RDONLY);
             if(fd < 0){
@@ -155,10 +201,63 @@ static int set_input_redirect(token_list* tokens){
     return 1;
 }
 
+static int set_output_redirect(token_list* tokens){
+    token_node* curr = tokens->head;
+    while(curr != NULL){
+        if(curr->token.type == token_gt || curr->token.type == token_gtgt){
+            if(curr->next == NULL || curr->next->token.type != token_word){
+                fprintf(stderr, "cshell: invalid output redirection\n");
+                return 0;
+            }
+            int flags;
+            if(curr->token.type == token_gt) flags = O_WRONLY | O_CREAT | O_TRUNC;
+            else flags = O_WRONLY | O_CREAT | O_APPEND;
+
+            int fd = open(curr->next->token.value, flags, 0644);
+            if(fd <  0){
+                perror(curr->next->token.value);
+                return 0;
+            }
+            if(dup2(fd, STDOUT_FILENO) < 0){
+                perror("dup2");
+                close(fd);
+                return 0;
+            }
+            close(fd);
+            return 1;
+        }
+        curr = curr->next;
+    }
+    return 1;
+}
+
+
+static int run_builtin(token_list* tokens){
+    token_node* curr = tokens->head;
+    if(curr == NULL) return -1;
+    if(strcmp(curr->token.value, "hop") == 0) return hop(tokens);
+    if(strcmp(curr->token.value, "peek") == 0) return peek(tokens);
+    if(strcmp(curr->token.value, "reveal") == 0) return reveal(tokens);
+    if(strcmp(curr->token.value, "locate") == 0) return locate(tokens);
+    return -1;
+}
+
 static int run_command_child(token_list* tokens){
     char* argv[256];
     char resolved_path[PATH_BUFFER_SIZE];
+
     if(!set_input_redirect(tokens)) return 1;
+    if(!set_output_redirect(tokens)) return 1;
+    
+    token_list clean_tokens;
+    if(!build_builtin_tokens(tokens, &clean_tokens)) return 1;
+    int is_builtin = run_builtin(&clean_tokens);
+    if(is_builtin != -1){
+        free_tokens(&clean_tokens);
+        return is_builtin;
+    }
+    free_tokens(&clean_tokens);
+
     if(!build_argv(tokens, argv, 256)) return 1;
     if(!resolve(argv[0], resolved_path)){
         fprintf(stderr, "cshell: command not found(%s)\n", argv[0]);
